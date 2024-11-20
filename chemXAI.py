@@ -198,9 +198,6 @@ class Shap:
         # Select SHAP values for the instance and flatten the extra dimension
         local_shap_values = self.shap_values[index].flatten()
         
-        # Additional check on SHAP values shape
-        print("Local SHAP values shape:", local_shap_values.shape)
-        
         # Create a DataFrame with feature indices and SHAP values
         feature_importance = pd.DataFrame({
             'Feature Index': range(len(local_shap_values)),
@@ -211,22 +208,34 @@ class Shap:
 
     def global_explanation(self):
         """
-        Generates a global explanation by displaying a DataFrame with average feature importance,
-        calculated as the mean of absolute SHAP values across all instances.
+        Generates global explanations by calculating the average feature importance for each instance
+        in the test data and the overall mean importance across all instances.
+        
+        Returns:
+        - all_local_importances: DataFrame where each row represents an instance and each column represents a feature.
+        - global_feature_importance: DataFrame with average feature importance across all instances.
         """
-        # Compute global importance as mean of absolute SHAP values
-        global_importance = np.mean(np.abs(self.shap_values), axis=0).flatten()
+        # Squeeze shap_values to remove any extra dimension if present
+        shap_values_2d = np.squeeze(self.shap_values)  # Converts to Matrix
         
-        # Additional check on global values shape
-        print("Global SHAP values shape:", global_importance.shape)
+        # Compute local explanations for each instance and collect them in a DataFrame
+        all_local_importances = pd.DataFrame(shap_values_2d)
+        all_local_importances.columns = [f'Feature {i}' for i in range(shap_values_2d.shape[1])]
         
-        # Create a DataFrame with global feature importance
-        feature_importance = pd.DataFrame({
-            'Feature Index': range(len(global_importance)),
-            'Importance': global_importance
+        # Compute global importance as the mean of absolute SHAP values across all instances
+        mean_absolute_shap_values = np.mean(np.abs(shap_values_2d), axis=0)
+        
+        # Additional check on the shape of the mean SHAP values
+        print("Global SHAP values shape:", mean_absolute_shap_values.shape)
+        
+        # DataFrame with mean absolute feature importance across all instances
+        global_feature_importance = pd.DataFrame({
+            'Feature': [f'{i}' for i in range(len(mean_absolute_shap_values))],
+            'Importance': mean_absolute_shap_values
         }).sort_values(by='Importance', ascending=False).reset_index(drop=True)
         
-        return feature_importance
+        return all_local_importances, global_feature_importance
+
         
 class LIME:
     def __init__(self, model, train_loader, test_loader, device, mode='regression'):
